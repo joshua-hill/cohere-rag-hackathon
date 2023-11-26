@@ -12,9 +12,9 @@ api_key = '4jdEqGb3coPXaw7M8mbEaTvKMdYu5vJsa0G3MHbL'
 co = cohere.Client(api_key) 
 
 # add title
-st.title("Cofinder")
+st.title("Customer Service Bot")
 # add a subtitle
-st.subheader("A semantic search tool built for the Cohere community")
+st.subheader("Cohere hackathon product demo made by\n Dvir Zagury, Ellie Lastname, Joschua Lastname.")
 
 
 # Load the search index
@@ -103,14 +103,13 @@ def display(query, results):
 
 # add the if statements to run the search function when the user clicks the buttons
 
-query = st.text_input('Ask a question about Cohere')
+query = st.text_input('Ask out cutsomer service bot a question.')
 # write some examples to help the user
 
 st.markdown('''Try some of these examples: 
-- What is the Cohere API?
-- What are embeddings?
-- What is the Cohere playground?
-- How can I build a chatbot?''')
+- Example1
+- Example2
+- Example3''')
 
 if st.button('Search'):
     results = search(query, 3, df, search_index, co)
