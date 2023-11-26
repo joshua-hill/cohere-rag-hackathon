@@ -165,26 +165,97 @@ def display(query, results):
     
     # BETTER ANSWER
     
-    
+    ##
+    def chunk_text(df_new, width=1500, overlap=500):
+        # create an empty dataframe to store the chunked text
+        new_df = pd.DataFrame(columns=['id', 'text_chunk'])
+
+        # iterate over each row in the original dataframe
+        for index, row in df_new.iterrows():
+            # split the text into chunks of size 'width', with overlap of 'overlap'
+            chunks = []
+            rows = []
+            for i in range(0, len(row['text']), width - overlap):
+                chunk = row['text'][i:i+width]
+                chunks.append(chunk)
+
+            # iterate over each chunk and add it to the new dataframe
+            chunk_rows = []
+            for i, chunk in enumerate(chunks):
+                # calculate the start index based on the chunk index and overlap
+                start_index = i * (width - overlap)
+
+                # create a new row with the chunked text and the original row's ID
+                new_row = {'id': row['id'], 'text_chunk': chunk, 'start_index': start_index}
+                chunk_rows.append(new_row)
+            chunk_df = pd.DataFrame(chunk_rows)
+            new_df = pd.concat([new_df, chunk_df], ignore_index=True)
+
+        return new_df
+
+    ## Query csv file:
+    def query_csv(Type):
+        df_new = pd.read_csv('cohere_text_preprocessing.csv')
+        # add an id column
+        df_new['id'] = df_new.index
+
+        # Filter the DataFrame for rows where the column value is 'x'
+        # Replace 'your_column_name' with the actual column name you want to filter by
+        filtered_df = df_new[df_new["Type"] == Type]
+
+        # Iterate over the filtered rows and generate prompts for each
+        for index, row in filtered_df.iterrows():
+            query_Q = row["Type"]  # Replace with the name of the column containing the query
+            prompt = f"you have received customer query {query_Q} identified as “technical support”, find an answer"
+
+        return prompt
+
+    new_df = chunk_text(df)
+    # append text chunks to the original dataframe in id order
+    df_new = df_new.merge(new_df, on='id', how='left')
+    api_key = '4jdEqGb3coPXaw7M8mbEaTvKMdYu5vJsa0G3MHbL'
+    co = cohere.Client(api_key) 
+
+    # Get the embeddings
+    embeds = co.embed(texts=list(df_new['text_chunk']),
+                    model="embed-english-v3.0",
+                    truncate="RIGHT").embeddings
+    # Check the dimensions of the embeddings
+    embeds = np.array(embeds)
+    embeds.shape
+
+    # Create the search index, pass the size of embedding
+    search_index = AnnoyIndex(embeds.shape[1], 'angular')
+    # Add all the vectors to the search index
+    for i in range(len(embeds)):
+        search_index.add_item(i, embeds[i])
+
+    search_index.build(10) # 10 trees
+    search_index.save('search_index.ann')
+
+    # export the dataframe to a csv file
+    df_new.to_csv('cohere_text_final.csv', index=False)
+
+    ## end
+
+
     ## ADDING:
     intent = find_intent(query)
+    urgency = find_urgency(query)
     if intent[1] < 0.5:
         answ = "I'm sorry, I don't understand your question. Please try rephrasing it."
 
     if intent[0] == "Technical Support":
         query = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
-        answ = gen_better_answer(query, answers)
         ## need to query the df.type = technical support
-  
-
-
-
-
-    if intent[0] == "Technical Support":
-        prompt = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
-        gen_answer(q, para)
-
-
+        answ = gen_better_answer(query_csv("User docuemntation"), answers) 
+    elif urgency[0] == "High Urgency":
+        query = f"Your query is of high urgency, let me connect you to a live person..."
+        answ = query
+    else:
+        query = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
+        ## need to query the df.type = technical support
+        answ = gen_better_answer(query_csv("User docuemntation"), answers) 
 
     ## END ADD
 
