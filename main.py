@@ -56,6 +56,21 @@ def gen_answer(q, para):
     return response.generations[0].text
 
 
+def gen_better_answer(ques, ans): 
+    response = co.generate( 
+        model='command-light', 
+        prompt=f'''Answers:{ans}\n\n
+                Question: {ques}\n\n
+                Generate a new answer that uses the best answers 
+                and makes reference to the question.''', 
+        max_tokens=100, 
+        temperature=0.4)
+    return response.generations[0].text
+
+
+
+
+############# Algorithm structure: #############
 def find_intent(query):
     # Examples for each category
     examples_intent = [
@@ -103,62 +118,38 @@ def find_intent(query):
     response_intent = co.classify(
     model='embed-english-v2.0',
     inputs=[query],
-    examples=examples_intent
-    )
+    examples=examples_intent)
 
     return response_intent.classifications[0].predictions[0], response_intent.classifications[0].confidences[0]
-    
+
 
 
 def find_urgency():
-    ...
+    # Examples for each category
+    examples_urgency = [
+        # High Urgency: Cancellation threats, ethical concerns, or mentions of previous attempts to resolve the issue
+        Example("I'm going to cancel my subscription if this isn't resolved immediately.", "High Urgency"),
+        Example("I have serious ethical concerns about your data practices.", "High Urgency"),
+        Example("This is my third time contacting you about the same problem!", "High Urgency"),
 
+        # Medium Urgency: General negative sentiment without threats of cancellation or ethical concerns
+        Example("I am not happy with the delay in service.", "Medium Urgency"),
+        Example("The product is not working as expected, and I'm quite frustrated.", "Medium Urgency"),
+        Example("I'm disappointed with the quality of your customer support.", "Medium Urgency"),
 
+        # Low Urgency: Default urgency for neutral or positive sentiment
+        Example("I have a question about my account when you have time.", "Low Urgency"),
+        Example("Could you please provide some more information about this feature?", "Low Urgency"),
+        Example("I'm looking forward to your response at your earliest convenience.", "Low Urgency")
+    ]
+    
+    response_urgency = co.classify(
+    model='embed-english-v2.0',
+    inputs=[query],
+    examples=response_urgency)
 
-
-
-def gen_better_answer(ques, ans): 
-    response = co.generate( 
-        model='command-light', 
-        prompt=f'''Answers:{ans}\n\n
-                Question: {ques}\n\n
-                Generate a new answer that uses the best answers 
-                and makes reference to the question.''', 
-        max_tokens=100, 
-        temperature=0.4)
-    return response.generations[0].text
-
-
-
-
-############# Algorithm structure: #############
-
-if find_intent(query)[0] == "Technical Support":
-    prompt = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return response_urgency.classifications[0].predictions[0], response_urgency.classifications[0].confidences[0]
+#################################################
 
 
 def display(query, results):
@@ -173,8 +164,31 @@ def display(query, results):
     # run the function to generate a better answer
     
     # BETTER ANSWER
-    answ = gen_better_answer(query, answers)
     
+    
+    ## ADDING:
+    intent = find_intent(query)
+    if intent[1] < 0.5:
+        answ = "I'm sorry, I don't understand your question. Please try rephrasing it."
+
+    if intent[0] == "Technical Support":
+        query = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
+        answ = gen_better_answer(query, answers)
+        ## need to query the df.type = technical support
+  
+
+
+
+
+    if intent[0] == "Technical Support":
+        prompt = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
+        gen_answer(q, para)
+
+
+
+    ## END ADD
+
+
     # 2. Code to display the resuls in a user-friendly format
 
     st.subheader(query)
@@ -197,3 +211,14 @@ st.markdown('''Try some of these examples:
 if st.button('Search'):
     results = search(query, 3, df, search_index, co)
     display(query, results)
+
+
+
+
+
+
+
+
+
+
+
