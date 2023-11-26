@@ -55,6 +55,68 @@ def gen_answer(q, para):
         temperature=0.4)
     return response.generations[0].text
 
+
+def find_intent(query):
+    # Examples for each category
+    examples_intent = [
+        # Technical Support
+        Example("I can't log into my account.", "Technical Support"),
+        Example("The application crashes when I try to upload a file.", "Technical Support"),
+        Example("I'm experiencing slow response times from the server.", "Technical Support"),
+
+        # Pricing and Billing
+        Example("Can you confirm if my payment went through?", "Pricing and Billing"),
+        Example("I've been overcharged for last month's service.", "Pricing and Billing"),
+        Example("How do I upgrade my current plan?", "Pricing and Billing"),
+
+        # Product Information
+        Example("Can your product support multi-language inputs?", "Product Information"),
+        Example("Does your AI support image recognition?", "Product Information"),
+        Example("Is your software compatible with macOS?", "Product Information"),
+
+        # Development Support
+        Example("How can I integrate your API with my existing systems?", "Development Support"),
+        Example("I need help with a script using your AI model.", "Development Support"),
+        Example("What are the limitations of using the free version of your platform?", "Development Support"),
+
+        # Careers
+        Example("Are there any current openings for data scientists?", "Careers"),
+        Example("What's the status of my job application submitted last week?", "Careers"),
+        Example("Do you offer internships for undergraduates?", "Careers"),
+
+        # Partnership and Collaboration
+        Example("We're interested in a strategic partnership with your company.", "Partnership and Collaboration"),
+        Example("Would you be interested in a joint research initiative?", "Partnership and Collaboration"),
+        Example("We are seeking sponsors for our tech conference.", "Partnership and Collaboration"),
+
+        # Feedback and Suggestions
+        Example("I have some suggestions to improve the user interface.", "Feedback and Suggestions"),
+        Example("Consider adding a dark mode feature to your app.", "Feedback and Suggestions"),
+        Example("I am not satisfied with the customer service I received.", "Feedback and Suggestions"),
+
+        # Marketing
+        Example("How can we advertise our products on your platform?", "Marketing"),
+        Example("Can you provide details about your upcoming webinar?", "Marketing"),
+        Example("I'm a journalist looking for a press contact at your company.", "Marketing")
+    ]
+
+    response_intent = co.classify(
+    model='embed-english-v2.0',
+    inputs=[query],
+    examples=examples_intent
+    )
+
+    return response_intent.classifications[0].predictions[0], response_intent.classifications[0].confidences[0]
+    
+
+
+def find_urgency():
+    ...
+
+
+
+
+
 def gen_better_answer(ques, ans): 
     response = co.generate( 
         model='command-light', 
@@ -66,6 +128,39 @@ def gen_better_answer(ques, ans):
         temperature=0.4)
     return response.generations[0].text
 
+
+
+
+############# Algorithm structure: #############
+
+if find_intent(query)[0] == "Technical Support":
+    prompt = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 def display(query, results):
     # 1. Run co.generate functions to generate answers
 
@@ -76,6 +171,8 @@ def display(query, results):
                                               results['text_chunk']))
     answers = results['answer'].tolist()
     # run the function to generate a better answer
+    
+    # BETTER ANSWER
     answ = gen_better_answer(query, answers)
     
     # 2. Code to display the resuls in a user-friendly format
@@ -84,26 +181,12 @@ def display(query, results):
     st.write(answ)
     # add a spacer
     st.write('')
-    st.write('')
-    st.subheader("Relevant documents")
-    # display the results
-    for i, row in results.iterrows():
-        # display the 'Category' outlined
-        st.markdown(f'**{row["Type"]}**')
-        st.markdown(f'**{row["Category"]}**')
-        st.markdown(f'{row["title"]}')
-        # display the url as a hyperlink
-        # add a button to open the url in a new tab
-        st.markdown(f'[{row["link"]}]({row["link"]})')
-        st.write(row['answer'])
-        # collapse the text
-        with st.expander('Read more'):
-            st.write(row['text'])
-        st.write('')
+    st.subheader("Here's XXX:")
+
 
 # add the if statements to run the search function when the user clicks the buttons
 
-query = st.text_input('Ask out cutsomer service bot a question.')
+query = st.text_input('Ask our cutsomer service bot a question.')
 # write some examples to help the user
 
 st.markdown('''Try some of these examples: 
