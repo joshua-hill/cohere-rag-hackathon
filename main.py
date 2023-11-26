@@ -3,6 +3,7 @@ import cohere
 import numpy as np
 import pandas as pd
 from annoy import AnnoyIndex
+from cohere.responses.classify import Example
 from concurrent.futures import ThreadPoolExecutor
 
 # Access the API key value
@@ -14,7 +15,7 @@ co = cohere.Client(api_key)
 # add title
 st.title("Customer Service Bot")
 # add a subtitle
-st.subheader("Cohere hackathon product demo made by\n Dvir Zagury, Ellie Lastname, Joschua Lastname.")
+st.subheader("Cohere hackathon product demo made by\n Dvir Zagury, Ellie Sanoubari, Joshua Hill.")
 
 
 # Load the search index
@@ -56,10 +57,10 @@ def gen_answer(q, para):
     return response.generations[0].text
 
 
-def gen_better_answer(ques, ans): 
+def gen_better_answer(ques): 
     response = co.generate( 
         model='command-light', 
-        prompt=f'''Answers:{ans}\n\n
+        prompt=f'''
                 Question: {ques}\n\n
                 Generate a new answer that uses the best answers 
                 and makes reference to the question.''', 
@@ -124,7 +125,7 @@ def find_intent(query):
 
 
 
-def find_urgency():
+def find_urgency(query):
     # Examples for each category
     examples_urgency = [
         # High Urgency: Cancellation threats, ethical concerns, or mentions of previous attempts to resolve the issue
@@ -146,25 +147,13 @@ def find_urgency():
     response_urgency = co.classify(
     model='embed-english-v2.0',
     inputs=[query],
-    examples=response_urgency)
+    examples=examples_urgency)
 
     return response_urgency.classifications[0].predictions[0], response_urgency.classifications[0].confidences[0]
 #################################################
 
 
 def display(query, results):
-    # 1. Run co.generate functions to generate answers
-
-    # for each row in the dataframe, generate an answer concurrently
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        results['answer'] = list(executor.map(gen_answer, 
-                                              [query]*len(results), 
-                                              results['text_chunk']))
-    answers = results['answer'].tolist()
-    # run the function to generate a better answer
-    
-    # BETTER ANSWER
-    
     ##
     def chunk_text(df_new, width=1500, overlap=500):
         # create an empty dataframe to store the chunked text
@@ -194,7 +183,7 @@ def display(query, results):
         return new_df
 
     ## Query csv file:
-    def query_csv(Type):
+    def query_csv(query, Type):
         df_new = pd.read_csv('cohere_text_preprocessing.csv')
         # add an id column
         df_new['id'] = df_new.index
@@ -204,37 +193,10 @@ def display(query, results):
         filtered_df = df_new[df_new["Type"] == Type]
 
         # Iterate over the filtered rows and generate prompts for each
-        for index, row in filtered_df.iterrows():
-            query_Q = row["Type"]  # Replace with the name of the column containing the query
-            prompt = f"you have received customer query {query_Q} identified as “technical support”, find an answer"
+        #for index, row in filtered_df.iterrows():
+        prompt = f"you have received customer query {query} identified as “technical support”, find an answer"
 
         return prompt
-
-    new_df = chunk_text(df)
-    # append text chunks to the original dataframe in id order
-    df_new = df_new.merge(new_df, on='id', how='left')
-    api_key = '4jdEqGb3coPXaw7M8mbEaTvKMdYu5vJsa0G3MHbL'
-    co = cohere.Client(api_key) 
-
-    # Get the embeddings
-    embeds = co.embed(texts=list(df_new['text_chunk']),
-                    model="embed-english-v3.0",
-                    truncate="RIGHT").embeddings
-    # Check the dimensions of the embeddings
-    embeds = np.array(embeds)
-    embeds.shape
-
-    # Create the search index, pass the size of embedding
-    search_index = AnnoyIndex(embeds.shape[1], 'angular')
-    # Add all the vectors to the search index
-    for i in range(len(embeds)):
-        search_index.add_item(i, embeds[i])
-
-    search_index.build(10) # 10 trees
-    search_index.save('search_index.ann')
-
-    # export the dataframe to a csv file
-    df_new.to_csv('cohere_text_final.csv', index=False)
 
     ## end
 
@@ -248,17 +210,30 @@ def display(query, results):
     if intent[0] == "Technical Support":
         query = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
         ## need to query the df.type = technical support
-        answ = gen_better_answer(query_csv("User docuemntation"), answers) 
+        answ = gen_better_answer(query_csv(query, "User docuemntation")) 
     elif urgency[0] == "High Urgency":
         query = f"Your query is of high urgency, let me connect you to a live person..."
         answ = query
     else:
         query = f"You recieved a customer support query with intent identified as technical support. Find an answer: {query} "
         ## need to query the df.type = technical support
-        answ = gen_better_answer(query_csv("User docuemntation"), answers) 
-
+        #answ = gen_better_answer(query_csv("User docuemntation"), answers) 
+        answ = gen_better_answer(query_csv(query, "User docuemntation"))
     ## END ADD
 
+
+    # 1. Run co.generate functions to generate answers
+
+    # for each row in the dataframe, generate an answer concurrently
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        results['answer'] = list(executor.map(gen_answer, 
+                                              [query]*len(results), 
+                                              results['text_chunk']))
+    answers = results['answer'].tolist()
+    # run the function to generate a better answer
+    
+    # BETTER ANSWER
+    
 
     # 2. Code to display the resuls in a user-friendly format
 
@@ -266,7 +241,9 @@ def display(query, results):
     st.write(answ)
     # add a spacer
     st.write('')
-    st.subheader("Here's XXX:")
+    st.subheader("Thank you for using our customer service bot!")
+
+
 
 
 # add the if statements to run the search function when the user clicks the buttons
@@ -275,9 +252,10 @@ query = st.text_input('Ask our cutsomer service bot a question.')
 # write some examples to help the user
 
 st.markdown('''Try some of these examples: 
-- Example1
-- Example2
-- Example3''')
+- What is the Cohere API?
+- I have serious ethical concerns about your data practices
+- I'm experiencing slow response times from the server
+- I can't log into my account''')
 
 if st.button('Search'):
     results = search(query, 3, df, search_index, co)
